@@ -1,10 +1,12 @@
 import { NavLink } from 'react-router-dom';
 
 const links = [
-  { to: '/offers/new', label: 'New Offer' },
-  { to: '/offers', label: 'Offer History' },
-  { to: '/templates', label: 'My Templates' },
-  { to: '/form-templates', label: 'GBBREB Forms' },
+  { to: '/offers/new',            label: 'New Offer' },
+  { to: '/offers',                label: 'Offer History' },
+  { to: '/templates',             label: 'My Templates' },
+  { to: '/form-templates',        label: 'GBBREB Forms' },
+  { to: '/market-reports',        label: 'Market Report' },
+  { to: '/market-report-templates', label: 'MR Templates' },
 ];
 
 export default function Navbar() {
@@ -13,9 +15,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           <div className="flex items-center gap-2">
-            <span className="text-brand-600 font-bold text-lg tracking-tight">
-              GBBREB
-            </span>
+            <span className="text-brand-600 font-bold text-lg tracking-tight">GBBREB</span>
             <span className="text-gray-400 font-light">Offer Assistant</span>
           </div>
           <div className="flex items-center gap-1">

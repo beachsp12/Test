@@ -8,11 +8,14 @@ import type {
   DocumentRecord,
   FormTemplate,
   InspectedField,
+  MarketReport,
+  MarketReportFields,
+  MarketReportTemplate,
 } from './types';
 
 const api = axios.create({ baseURL: '/api' });
 
-// ─── NLP Extraction ───────────────────────────────────────────────────────────
+// ─── NLP Extraction ──────────────────────────────────────────────────────────────
 
 export const extract = (
   text: string,
@@ -51,7 +54,7 @@ export const updateOffer = (
 export const deleteOffer = (id: string): Promise<void> =>
   api.delete(`/offers/${id}`).then(() => undefined);
 
-// ─── Templates ────────────────────────────────────────────────────────────────
+// ─── Templates ────────────────────────────────────────────────────────────
 
 export const listTemplates = (): Promise<Template[]> =>
   api.get<Template[]>('/templates').then(r => r.data);
@@ -68,7 +71,7 @@ export const createTemplate = (data: {
 export const deleteTemplate = (id: string): Promise<void> =>
   api.delete(`/templates/${id}`).then(() => undefined);
 
-// ─── Documents ────────────────────────────────────────────────────────────────
+// ─── Documents ──────────────────────────────────────────────────────────────
 
 export const generateDocument = (
   offerId: string,
@@ -82,7 +85,7 @@ export const getDocumentPdfUrl = (docId: string): string =>
 export const listDocuments = (offerId: string): Promise<DocumentRecord[]> =>
   api.get<DocumentRecord[]>(`/documents/offer/${offerId}`).then(r => r.data);
 
-// ─── GBBREB Form Templates (PDF upload & mapping) ────────────────────────────
+// ─── GBBREB Form Templates (PDF upload & mapping) ────────────────────────
 
 export const listFormTemplates = (): Promise<FormTemplate[]> =>
   api.get<FormTemplate[]>('/form-templates').then(r => r.data);
@@ -120,6 +123,53 @@ export const saveFieldMappings = (
 
 export const deleteFormTemplate = (formType: string): Promise<void> =>
   api.delete(`/form-templates/${formType}`).then(() => undefined);
+
+// ─── Market Reports ──────────────────────────────────────────────────────────
+
+export const extractMarketStats = (
+  text: string,
+): Promise<{ extracted: Partial<MarketReportFields> }> =>
+  api.post('/market-reports/extract', { text }).then(r => r.data);
+
+export const listMarketReports = (): Promise<MarketReport[]> =>
+  api.get<MarketReport[]>('/market-reports').then(r => r.data);
+
+export const createMarketReport = (data: {
+  name?: string;
+  fields: MarketReportFields;
+}): Promise<MarketReport> =>
+  api.post<MarketReport>('/market-reports', data).then(r => r.data);
+
+export const updateMarketReport = (
+  id: string,
+  data: { name?: string; fields?: MarketReportFields },
+): Promise<{ id: string; updatedAt: string }> =>
+  api.put(`/market-reports/${id}`, data).then(r => r.data);
+
+export const deleteMarketReport = (id: string): Promise<void> =>
+  api.delete(`/market-reports/${id}`).then(() => undefined);
+
+export const previewMarketReportPdf = (fields: MarketReportFields): Promise<Blob> =>
+  api.post('/market-reports/preview', { fields }, { responseType: 'blob' }).then(r => r.data);
+
+export const downloadMarketReportPdf = (id: string): Promise<Blob> =>
+  api.post(`/market-reports/${id}/pdf`, {}, { responseType: 'blob' }).then(r => r.data);
+
+// ─── Market Report Templates ───────────────────────────────────────────────
+
+export const listMarketReportTemplates = (): Promise<MarketReportTemplate[]> =>
+  api.get<MarketReportTemplate[]>('/market-reports/templates').then(r => r.data);
+
+export const createMarketReportTemplate = (data: {
+  name: string;
+  description?: string;
+  fields: Partial<MarketReportFields>;
+  tags?: string[];
+}): Promise<MarketReportTemplate> =>
+  api.post<MarketReportTemplate>('/market-reports/templates', data).then(r => r.data);
+
+export const deleteMarketReportTemplate = (id: string): Promise<void> =>
+  api.delete(`/market-reports/templates/${id}`).then(() => undefined);
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 

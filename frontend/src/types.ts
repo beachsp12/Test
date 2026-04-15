@@ -135,3 +135,57 @@ export interface InspectedField {
   options?: string[];
   suggestedMapping?: string;
 }
+
+// ─── Market Report Types ───────────────────────────────────────────────────
+
+export interface MarketStats {
+  activeListings?: number;
+  newListings?: number;
+  closedSales?: number;
+  avgDaysOnMarket?: number;
+  medianSalePrice?: number;
+  avgSalePrice?: number;
+  listToSaleRatio?: number;   // decimal e.g. 0.98
+  monthsOfSupply?: number;
+  medianSalePriceYoY?: number; // percent change e.g. 5.2
+  avgSalePriceYoY?: number;
+}
+
+export interface PriceRangeRow {
+  range: string;
+  count: number;
+  pctOfTotal?: number;
+}
+
+export interface MarketReportFields {
+  marketArea: string;
+  reportPeriod: string;
+  propertyType?: string;
+  stats: MarketStats;
+  priceRanges?: PriceRangeRow[];
+  narrative?: string;
+  agentName?: string;
+  agentTitle?: string;
+  agentPhone?: string;
+  agentEmail?: string;
+  agentLicense?: string;
+  officeName?: string;
+  officeAddress?: string;
+}
+
+export interface MarketReport {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  fields: MarketReportFields;
+}
+
+export interface MarketReportTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  fields: Partial<MarketReportFields>;
+  tags?: string[];
+}

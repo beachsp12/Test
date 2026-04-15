@@ -5,6 +5,8 @@ import OfferHistory from './pages/OfferHistory';
 import OfferDetail from './pages/OfferDetail';
 import Templates from './pages/Templates';
 import FormTemplates from './pages/FormTemplates';
+import MarketReport from './pages/MarketReport';
+import MarketReportTemplates from './pages/MarketReportTemplates';
 
 export default function App() {
   return (
@@ -19,6 +21,8 @@ export default function App() {
             <Route path="/offers/:id" element={<OfferDetail />} />
             <Route path="/templates" element={<Templates />} />
             <Route path="/form-templates" element={<FormTemplates />} />
+            <Route path="/market-reports" element={<MarketReport />} />
+            <Route path="/market-report-templates" element={<MarketReportTemplates />} />
           </Routes>
         </main>
       </div>
