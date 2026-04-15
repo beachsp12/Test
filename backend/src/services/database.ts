@@ -56,6 +56,23 @@ db.exec(`
     watermarked INTEGER NOT NULL DEFAULT 1,
     UNIQUE(offer_id, version)
   );
+
+  CREATE TABLE IF NOT EXISTS market_reports (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL,
+    fields      TEXT NOT NULL DEFAULT '{}'
+  );
+
+  CREATE TABLE IF NOT EXISTS market_report_templates (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT,
+    created_at  TEXT NOT NULL,
+    fields      TEXT NOT NULL DEFAULT '{}',
+    tags        TEXT
+  );
 `);
 
 // ─── Offer helpers ────────────────────────────────────────────────────────────
@@ -117,6 +134,40 @@ export const documentQueries = {
   getNextVersion: db.prepare(`
     SELECT COALESCE(MAX(version), 0) + 1 AS next FROM documents WHERE offer_id = ?
   `),
+};
+
+// ─── Market Report helpers ────────────────────────────────────────────────────
+
+export const marketReportQueries = {
+  insert: db.prepare(`
+    INSERT INTO market_reports (id, name, created_at, updated_at, fields)
+    VALUES (@id, @name, @createdAt, @updatedAt, @fields)
+  `),
+
+  update: db.prepare(`
+    UPDATE market_reports SET name = @name, updated_at = @updatedAt, fields = @fields WHERE id = @id
+  `),
+
+  findAll: db.prepare(`SELECT * FROM market_reports ORDER BY updated_at DESC`),
+
+  findById: db.prepare(`SELECT * FROM market_reports WHERE id = ?`),
+
+  delete: db.prepare(`DELETE FROM market_reports WHERE id = ?`),
+};
+
+// ─── Market Report Template helpers ──────────────────────────────────────────
+
+export const marketReportTemplateQueries = {
+  insert: db.prepare(`
+    INSERT INTO market_report_templates (id, name, description, created_at, fields, tags)
+    VALUES (@id, @name, @description, @createdAt, @fields, @tags)
+  `),
+
+  findAll: db.prepare(`SELECT * FROM market_report_templates ORDER BY created_at DESC`),
+
+  findById: db.prepare(`SELECT * FROM market_report_templates WHERE id = ?`),
+
+  delete: db.prepare(`DELETE FROM market_report_templates WHERE id = ?`),
 };
 
 export default db;

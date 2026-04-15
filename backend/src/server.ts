@@ -11,8 +11,9 @@ import offersRouter from './routes/offers';
 import templatesRouter from './routes/templates';
 import documentsRouter from './routes/documents';
 import formTemplatesRouter from './routes/formTemplates';
+import marketReportsRouter from './routes/marketReports';
 
-const app = express();
+const app  = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
@@ -23,11 +24,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Increase JSON limit for large field sets
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging in development
 if (process.env.NODE_ENV !== 'production') {
   app.use((req, _res, next) => {
     console.log(`${req.method} ${req.path}`);
@@ -37,11 +36,12 @@ if (process.env.NODE_ENV !== 'production') {
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
-app.use('/api/extract', extractRouter);
-app.use('/api/offers', offersRouter);
-app.use('/api/templates', templatesRouter);
-app.use('/api/documents', documentsRouter);
-app.use('/api/form-templates', formTemplatesRouter);
+app.use('/api/extract',         extractRouter);
+app.use('/api/offers',          offersRouter);
+app.use('/api/templates',       templatesRouter);
+app.use('/api/documents',       documentsRouter);
+app.use('/api/form-templates',  formTemplatesRouter);
+app.use('/api/market-reports',  marketReportsRouter);
 
 /** Health check */
 app.get('/api/health', (_req, res) => {
