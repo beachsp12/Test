@@ -136,6 +136,14 @@ details[open] summary::before{transform:rotate(90deg)}
 .rules th,.rules td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
 .tbl-wrap{overflow-x:auto}
 .empty{padding:18px 8px;text-align:center;color:var(--muted);font-size:14px}
+.shots{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.shot{position:relative;flex:none;width:96px;height:96px;border-radius:10px;overflow:hidden;border:1.5px solid var(--line);background:var(--surface-2)}
+.shot img{width:100%;height:100%;object-fit:cover;display:block}
+.shot .open{position:absolute;inset:0;width:100%;height:100%}
+.shot .del{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:14px;display:grid;place-items:center;opacity:.85}
+.lightbox{position:fixed;inset:0;background:rgba(20,10,24,.92);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;padding-top:calc(16px + env(safe-area-inset-top,0px))}
+.lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;touch-action:pinch-zoom}
+.lightbox .close{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:12px;width:44px;height:44px;border-radius:50%;background:#FFFFFF;color:#1F1424;font-size:22px;display:grid;place-items:center}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .hidden-input{display:none}
 @media (max-width:420px){ .stat-row{grid-template-columns:repeat(2,1fr)} h1{font-size:26px} }
@@ -155,10 +163,12 @@ details[open] summary::before{transform:rotate(90deg)}
       <span class="small muted num" id="inv-count"></span>
     </div>
     <div id="upload-area" class="btn-row">
-      <label class="btn primary" for="shots" id="shots-label">📷 Read screenshots</label>
+      <label class="btn primary" for="shots" id="shots-label">📷 Upload screenshots</label>
       <input class="hidden-input" type="file" id="shots" multiple accept="image/*">
-      <span class="small muted" id="shots-hint">Upload one or more inventory screenshots. Detected berries land in the list below, where you can fix counts.</span>
+      <button class="btn" id="read-btn" type="button" hidden>Read berries again</button>
+      <span class="small muted" id="shots-hint">Upload one or more screenshots of your berry inventory. They stay on screen so you can check counts against them.</span>
     </div>
+    <div id="shot-strip" class="shots" hidden></div>
     <div id="detect-status" class="notice" hidden></div>
     <div class="search">
       <label class="sr" for="berry-search">Add a berry by name</label>
@@ -506,56 +516,90 @@ function renderPlan(){
 }
 function stat(v,k){ return el("div",{class:"stat"},[el("span",{class:"v num",text:String(v)}),el("span",{class:"k",text:k})]); }
 
-// ---------- Screenshot reading via the viewer's Claude ----------
+// ---------- Screenshots: always shown; read by the viewer's Claude when that is available ----------
 const VALID_NAMES=BERRIES.map(b=>b.name);
-async function initVision(){
-  const status=$("#detect-status"), area=$("#upload-area"), input=$("#shots"), hint=$("#shots-hint");
-  let sample=null;
-  try{ sample=window.claude&&window.claude.use?await window.claude.use("sample"):null; }catch(e){ sample=null; }
-  const caps=sample?await sample.limits().catch(()=>null):null;
-  if(!sample||!caps||!caps.images){
-    $("#shots-label").hidden=true; input.hidden=true;
-    hint.textContent="Screenshot reading needs the claude.ai viewer. In this view, add berries by name below; it takes a few seconds.";
-    return;
-  }
-  input.accept=caps.images.mediaTypes.join(",");
-  const maxN=Math.max(1,caps.images.maxCount||1);
-  input.addEventListener("change",async()=>{
-    const files=[...input.files].filter(f=>caps.images.mediaTypes.includes(f.type)); input.value="";
-    if(!files.length){ show(status,"warn","Those files are not a supported image type ("+caps.images.mediaTypes.join(", ")+")."); return; }
-    const found=new Map(); let batchNo=0; const batches=[]; for(let i=0;i<files.length;i+=maxN) batches.push(files.slice(i,i+maxN));
-    const prompt="These are screenshots of a player's Berry inventory from Pokémon Legends: Z-A (Mega Dimension DLC, Ansha's donut shop or the bag). Read every berry name that is visible together with its quantity (the number shown next to it, often after an × or as a count). Only use names from this exact list, spelled exactly: "+VALID_NAMES.join("; ")+". 'Hyper' berries are separate items from regular berries: include the word Hyper only when the screenshot shows it. Skip anything that is not on the list or whose quantity you cannot read. If the same berry appears twice, report it once with the larger number. Reply with only a JSON array like [{\"name\":\"Hyper Tanga Berry\",\"qty\":12}] and nothing else.";
-    try{
-      for(const batch of batches){
-        batchNo++; show(status,"","Reading screenshot"+(batches.length>1?" batch "+batchNo+" of "+batches.length:"")+"… this can take up to a minute.");
-        const data=await sample.json(prompt,{images:batch,modelTier:"default"});
-        if(Array.isArray(data)) for(const row of data){
-          if(!row||typeof row.name!=="string") continue;
-          const id=NAME_INDEX[row.name.trim().toLowerCase()]||NAME_INDEX[(row.name.trim().toLowerCase()+" berry")];
-          const q=parseInt(row.qty,10); if(!id||!(q>0)) continue;
-          found.set(id,Math.max(found.get(id)||0,q));
-        }
-      }
-      if(!found.size){ show(status,"warn","No berries were recognized in those screenshots. Try a clearer or closer shot, or add berries by name."); return; }
-      for(const [id,q] of found) state.inv[id]=q;
-      state.example=false; state.cleared=true; save(); renderInventory(new Set(found.keys())); schedulePlan();
-      show(status,"good","Read "+found.size+" berr"+(found.size===1?"y":"ies")+" from "+files.length+" screenshot"+(files.length>1?"s":"")+". Check the counts below and fix any misses.");
-    }catch(e){
-      const code=e&&e.code;
-      const msg=code==="not_granted"?"Screenshot reading was not allowed for this page. Add berries by name instead.":
-        code==="rate_limited"?"Claude is busy or your usage limit is reached. Try again in a bit, or add berries by name.":
-        code==="image_rejected"?"One of those images was rejected (too large or not a supported type). Try a smaller screenshot.":
-        code==="invalid_json"?"The reply could not be read as a list. Try again with fewer screenshots at a time.":
-        code==="cancelled"?"Cancelled.":"Screenshot reading failed. You can try again or add berries by name.";
-      show(status,"warn",msg);
-      if(code==="not_granted"||code==="sampling_disabled"||code==="images_unavailable"){ $("#shots-label").hidden=true; }
-    }
+const shots=[]; // {file,url}
+const status=$("#detect-status"), input=$("#shots"), hint=$("#shots-hint"), strip=$("#shot-strip"), readBtn=$("#read-btn");
+let vision=null; // {sample,caps} once the viewer says images can be read
+let visionDisabled=false;
+const visionReady=(async()=>{
+  try{
+    const sample=window.claude&&window.claude.use?await window.claude.use("sample"):null;
+    if(!sample) return null;
+    const caps=await sample.limits().catch(()=>null);
+    if(!caps||!caps.images) return null;
+    vision={sample,caps}; return vision;
+  }catch(e){ return null; }
+})();
+visionReady.then(v=>{ if(!v) hint.textContent="Automatic reading is only available in the claude.ai viewer. Here, your screenshots stay on screen so you can enter counts while looking at them."; else if(shots.length) readBtn.hidden=false; });
+
+function renderShots(){
+  strip.innerHTML=""; strip.hidden=!shots.length;
+  shots.forEach((s,i)=>{
+    const box=el("div",{class:"shot"});
+    const img=el("img",{src:s.url,alt:"Screenshot "+(i+1)});
+    box.append(img,el("button",{class:"open",type:"button","aria-label":"Open screenshot "+(i+1)+" full size",onclick:()=>openLightbox(s.url)}),el("button",{class:"del",type:"button","aria-label":"Remove screenshot "+(i+1),text:"×",onclick:()=>{ URL.revokeObjectURL(s.url); shots.splice(i,1); renderShots(); if(!shots.length) readBtn.hidden=true; }}));
+    strip.append(box);
   });
+}
+function openLightbox(url){
+  const lb=el("div",{class:"lightbox",role:"dialog","aria-label":"Screenshot"});
+  const close=()=>{ lb.remove(); document.removeEventListener("keydown",onKey); };
+  const onKey=e=>{ if(e.key==="Escape") close(); };
+  lb.append(el("img",{src:url,alt:"Screenshot, full size"}),el("button",{class:"close",type:"button","aria-label":"Close",text:"×",onclick:close}));
+  lb.addEventListener("click",e=>{ if(e.target===lb) close(); });
+  document.addEventListener("keydown",onKey);
+  document.body.append(lb);
+}
+input.addEventListener("change",async()=>{
+  const files=[...input.files].filter(f=>/^image\//.test(f.type)); input.value="";
+  if(!files.length){ show(status,"warn","Those files are not images. Upload PNG or JPEG screenshots."); return; }
+  for(const f of files) shots.push({file:f,url:URL.createObjectURL(f)});
+  renderShots();
+  const v=await visionReady;
+  if(v&&!visionDisabled){ readBtn.hidden=false; await readShots(files); }
+  else show(status,"","Screenshots added. Use the search box to add each berry and match the counts to your screenshots.");
+});
+readBtn.addEventListener("click",()=>{ if(vision&&!visionDisabled&&shots.length) readShots(shots.map(s=>s.file)); });
+
+async function readShots(files){
+  const {sample,caps}=vision;
+  const ok=files.filter(f=>caps.images.mediaTypes.includes(f.type));
+  if(!ok.length){ show(status,"warn","Claude can read "+caps.images.mediaTypes.map(t=>t.replace("image/","").toUpperCase()).join(", ")+" images. These screenshots are a different type, so add the berries by name."); return; }
+  const maxN=Math.max(1,caps.images.maxCount||1);
+  const found=new Map(); let batchNo=0; const batches=[]; for(let i=0;i<ok.length;i+=maxN) batches.push(ok.slice(i,i+maxN));
+  const prompt="These are screenshots of a player's Berry inventory from Pokémon Legends: Z-A (Mega Dimension DLC, Ansha's donut shop or the bag). Read every berry name that is visible together with its quantity (the number shown next to it, often after an × or as a count). Only use names from this exact list, spelled exactly: "+VALID_NAMES.join("; ")+". 'Hyper' berries are separate items from regular berries: include the word Hyper only when the screenshot shows it. Skip anything that is not on the list or whose quantity you cannot read. If the same berry appears twice, report it once with the larger number. Reply with only a JSON array like [{\"name\":\"Hyper Tanga Berry\",\"qty\":12}] and nothing else.";
+  readBtn.disabled=true;
+  try{
+    for(const batch of batches){
+      batchNo++; show(status,"","Reading screenshot"+(batches.length>1?" batch "+batchNo+" of "+batches.length:"")+"… this can take up to a minute. The first time, the viewer asks whether this page may use Claude.");
+      const data=await sample.json(prompt,{images:batch,modelTier:"default"});
+      if(Array.isArray(data)) for(const row of data){
+        if(!row||typeof row.name!=="string") continue;
+        const key=row.name.trim().toLowerCase();
+        const id=NAME_INDEX[key]||NAME_INDEX[key+" berry"];
+        const q=parseInt(row.qty,10); if(!id||!(q>0)) continue;
+        found.set(id,Math.max(found.get(id)||0,q));
+      }
+    }
+    if(!found.size){ show(status,"warn","No berries were recognized in those screenshots. Try a closer shot of the list, or add berries by name while looking at the screenshot."); return; }
+    for(const [id,q] of found) state.inv[id]=q;
+    state.example=false; state.cleared=true; save(); renderInventory(new Set(found.keys())); schedulePlan();
+    show(status,"good","Read "+found.size+" berr"+(found.size===1?"y":"ies")+" from "+ok.length+" screenshot"+(ok.length>1?"s":"")+". Check the counts below against the screenshots and fix any misses.");
+  }catch(e){
+    const code=e&&e.code;
+    const msg=code==="not_granted"?"This page was not allowed to use Claude, so automatic reading is off. Your screenshots stay on screen; add berries by name.":
+      code==="rate_limited"?"Claude is busy or your usage limit is reached. Try \"Read berries again\" in a bit, or add berries by name.":
+      code==="image_rejected"?"One of those images was rejected (too large or an unsupported type). Try a smaller screenshot.":
+      code==="invalid_json"?"The reply could not be read as a list. Try \"Read berries again\" with fewer screenshots at a time.":
+      code==="cancelled"?"Cancelled.":"Screenshot reading failed. Try \"Read berries again\" or add berries by name.";
+    show(status,"warn",msg);
+    if(code==="not_granted"||code==="sampling_disabled"||code==="images_unavailable"||code==="not_declared"){ visionDisabled=true; readBtn.hidden=true; }
+  } finally { readBtn.disabled=false; }
 }
 function show(node,kind,text){ node.hidden=false; node.className="notice"+(kind?" "+kind:""); node.textContent=text; }
 
 // ---------- Boot ----------
 renderInventory(); renderSlots(); renderMode(); $("#donut-count").value=String(state.donuts.length); renderDonutRows(); renderPlan();
-initVision();
 })();
 </script>
