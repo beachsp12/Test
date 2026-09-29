@@ -1,0 +1,561 @@
+<title>Ansha's Donut Planner</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: one phone-width column of three stacked work areas (berries → donuts → recipes), bakery-ticket cards. */
+:root{
+  --bg:#FFF7E8; --surface:#FFFFFF; --surface-2:#FFF1D6; --ink:#3A1F42; --muted:#7E6787; --line:#EBD9BF;
+  --accent:#D63C74; --accent-ink:#FFFFFF; --good:#2E8B57; --good-bg:#E4F5EA; --warn:#B8640C; --warn-bg:#FFF0DC;
+  --sweet:#F06AA5; --spicy:#E8542E; --sour:#D9A60B; --bitter:#3FA36A; --fresh:#3E8FE0;
+  --display:"Fredoka","Nunito","Segoe UI",system-ui,sans-serif; --body:"Nunito","Segoe UI",system-ui,sans-serif;
+  --radius:14px; --shadow:0 1px 2px rgba(58,31,66,.08),0 6px 18px rgba(58,31,66,.06);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#1F1424; --surface:#2B1B31; --surface-2:#35223C; --ink:#F7EBF0; --muted:#B79EBD; --line:#4C3553;
+  --accent:#FF7AA8; --accent-ink:#2A0F1A; --good:#6FD394; --good-bg:#1F3A2A; --warn:#F2B35A; --warn-bg:#40301A;
+  --sweet:#FF8CBF; --spicy:#FF7A55; --sour:#F2C230; --bitter:#5FC88A; --fresh:#6BAEFF;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 6px 18px rgba(0,0,0,.25); color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#1F1424; --surface:#2B1B31; --surface-2:#35223C; --ink:#F7EBF0; --muted:#B79EBD; --line:#4C3553;
+  --accent:#FF7AA8; --accent-ink:#2A0F1A; --good:#6FD394; --good-bg:#1F3A2A; --warn:#F2B35A; --warn-bg:#40301A;
+  --sweet:#FF8CBF; --spicy:#FF7A55; --sour:#F2C230; --bitter:#5FC88A; --fresh:#6BAEFF;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 6px 18px rgba(0,0,0,.25); color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;margin:0}
+.wrap{max-width:640px;margin:0 auto;padding-inline:16px;padding-block:12px 48px;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--display);font-weight:600;line-height:1.15;margin:0;text-wrap:balance}
+h1{font-size:30px}
+h2{font-size:20px}
+h3{font-size:16px}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input,select{font:inherit;color:var(--ink)}
+
+header.top{display:flex;flex-direction:column;gap:4px;padding-top:8px}
+header.top .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:800}
+
+section.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.step{font-family:var(--display);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 16px;border-radius:999px;font-weight:800;font-size:15px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.small{min-height:36px;padding:4px 12px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.notice{border-radius:10px;padding:10px 12px;font-size:13px;background:var(--surface-2);border:1px solid var(--line);display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.notice.warn{background:var(--warn-bg);border-color:transparent}
+.notice.good{background:var(--good-bg);border-color:transparent}
+.notice .grow{flex:1 1 200px;min-width:0}
+
+/* inventory */
+.search{position:relative}
+.search input{width:100%;min-height:44px;border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--surface)}
+.search input::placeholder{color:var(--muted)}
+.sugg{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);max-height:260px;overflow:auto;display:flex;flex-direction:column}
+.sugg button{display:flex;align-items:center;gap:10px;padding:10px 12px;text-align:left;min-height:44px;border-bottom:1px solid var(--line)}
+.sugg button:last-child{border-bottom:0}
+.sugg button:hover,.sugg button:focus-visible{background:var(--surface-2)}
+.inv-list{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.inv-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);min-width:0}
+.inv-name{display:flex;flex-direction:column;gap:2px;min-width:0}
+.inv-name .n{font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.stepper{display:inline-flex;align-items:center;border:1.5px solid var(--line);border-radius:999px;overflow:hidden}
+.stepper button{width:40px;height:40px;font-size:20px;font-weight:700;display:grid;place-items:center}
+.stepper button:hover{background:var(--surface-2)}
+.stepper input{width:52px;height:40px;text-align:center;border:0;border-left:1.5px solid var(--line);border-right:1.5px solid var(--line);background:transparent;font-weight:800;-moz-appearance:textfield}
+.stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.rm{color:var(--muted);width:32px;height:40px;display:grid;place-items:center;font-size:18px;border-radius:8px}
+.rm:hover{color:var(--accent);background:var(--surface-2)}
+.inv-actions{display:flex;align-items:center;gap:4px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+.tag{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.tag.hyper{background:var(--accent);color:var(--accent-ink)}
+.flav-mini{display:flex;gap:4px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.flav-mini span{display:inline-flex;align-items:center;gap:3px}
+.new{animation:pop .6s ease-out}
+@keyframes pop{0%{background:var(--good-bg)}100%{background:transparent}}
+@media (prefers-reduced-motion:reduce){.new{animation:none}}
+
+/* plan */
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:800;font-size:13px}
+.seg{display:flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;width:fit-content;max-width:100%}
+.seg button{min-width:44px;height:40px;padding:0 10px;font-weight:800;border-right:1.5px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.fields{display:flex;gap:14px;flex-wrap:wrap}
+.donut-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.donut-row .lbl{font-family:var(--display);font-weight:600;width:64px;flex:none}
+.stars{display:inline-flex}
+.stars button{width:36px;height:44px;font-size:24px;line-height:1;color:var(--line);display:grid;place-items:center}
+.stars button.on{color:var(--sour)}
+.donut-row select{min-height:40px;border:1.5px solid var(--line);border-radius:10px;padding:4px 8px;background:var(--surface)}
+
+/* recipes */
+.summary{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px;background:var(--surface-2)}
+.pill.good{background:var(--good-bg);color:var(--good)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.recipe{border:1.5px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface);display:flex;flex-direction:column}
+.recipe.short{border-color:var(--warn)}
+.r-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:var(--surface-2);flex-wrap:wrap}
+.r-head .t{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:600;font-size:17px}
+.r-head .stars-out{color:var(--sour);letter-spacing:1px;font-size:16px}
+.r-body{padding:12px;display:flex;flex-direction:column;gap:10px}
+.ing{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.ing li{display:flex;align-items:center;gap:10px;font-size:16px}
+.ing .q{font-family:var(--display);font-weight:700;font-size:18px;min-width:38px;text-align:right}
+.ing .x{color:var(--muted);font-size:13px}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.stat{background:var(--surface-2);border-radius:10px;padding:6px 8px;display:flex;flex-direction:column;min-width:0}
+.stat .v{font-family:var(--display);font-weight:600;font-size:18px}
+.stat .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.bar{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--line)}
+.bar span{display:block;height:100%}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:4px}
+.needs{background:var(--warn-bg);border-radius:10px;padding:8px 10px;font-size:14px;display:flex;flex-direction:column;gap:4px}
+.needs strong{color:var(--warn)}
+.powers{font-size:13px;color:var(--muted)}
+.r-foot{display:flex;justify-content:flex-end;gap:8px;padding:0 12px 12px;flex-wrap:wrap}
+
+details{border-top:1px solid var(--line);padding-top:10px}
+summary{cursor:pointer;font-weight:800;list-style:none;display:flex;align-items:center;gap:8px;min-height:36px}
+summary::before{content:"▸";color:var(--accent);transition:transform .15s}
+details[open] summary::before{transform:rotate(90deg)}
+.rules{display:flex;flex-direction:column;gap:8px;font-size:14px;padding-top:6px}
+.rules ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.rules a{color:var(--accent);font-weight:700}
+.rules table{border-collapse:collapse;font-size:13px;width:100%}
+.rules th,.rules td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
+.tbl-wrap{overflow-x:auto}
+.empty{padding:18px 8px;text-align:center;color:var(--muted);font-size:14px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.hidden-input{display:none}
+@media (max-width:420px){ .stat-row{grid-template-columns:repeat(2,1fr)} h1{font-size:26px} }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <span class="eyebrow">Legends: Z-A · Mega Dimension</span>
+    <h1>Ansha's Donut Planner</h1>
+    <p class="muted">Enter the berries you have, pick a star target for each donut, and get recipes that fit your bag. Star math follows the game's Flavor Score thresholds.</p>
+  </header>
+
+  <!-- 1. Berries -->
+  <section class="card" id="sec-berries">
+    <div class="sec-head">
+      <div><span class="step">Step 1</span><h2>Your berries</h2></div>
+      <span class="small muted num" id="inv-count"></span>
+    </div>
+    <div id="upload-area" class="btn-row">
+      <label class="btn primary" for="shots" id="shots-label">📷 Read screenshots</label>
+      <input class="hidden-input" type="file" id="shots" multiple accept="image/*">
+      <span class="small muted" id="shots-hint">Upload one or more inventory screenshots. Detected berries land in the list below, where you can fix counts.</span>
+    </div>
+    <div id="detect-status" class="notice" hidden></div>
+    <div class="search">
+      <label class="sr" for="berry-search">Add a berry by name</label>
+      <input id="berry-search" type="search" placeholder="Add a berry by name (e.g. Hyper Tanga)" autocomplete="off">
+      <div class="sugg" id="sugg" hidden></div>
+    </div>
+    <div id="example-banner" class="notice" hidden>
+      <span class="grow">This is an <strong>example inventory</strong> so you can see how the planner works. Clear it and add your own.</span>
+      <button class="btn small" id="clear-example">Clear example</button>
+    </div>
+    <div class="inv-list" id="inv-list"></div>
+    <div class="btn-row">
+      <button class="btn small" id="clear-all">Clear all berries</button>
+    </div>
+  </section>
+
+  <!-- 2. Donuts -->
+  <section class="card" id="sec-plan">
+    <div class="sec-head"><div><span class="step">Step 2</span><h2>Donuts to make</h2></div></div>
+    <div class="fields">
+      <div class="field">
+        <label>Berry slots unlocked</label>
+        <div class="seg" id="slots-seg" role="group" aria-label="Berry slots unlocked"></div>
+        <span class="small muted">3 at the start of the DLC, up to 8 after the last butter upgrade.</span>
+      </div>
+      <div class="field">
+        <label for="donut-count">How many donuts</label>
+        <div class="stepper"><button id="dc-minus" aria-label="Fewer donuts">−</button><input id="donut-count" type="number" min="1" max="12" value="2"><button id="dc-plus" aria-label="More donuts">+</button></div>
+      </div>
+      <div class="field">
+        <label>Recipe style</label>
+        <div class="seg" id="mode-seg" role="group" aria-label="Recipe style">
+          <button data-mode="conserve" aria-pressed="true">Save berries</button>
+          <button data-mode="strong" aria-pressed="false">Strongest</button>
+        </div>
+        <span class="small muted" id="mode-hint">Hits each star target with the least flavor spent, so your best berries stay in the bag.</span>
+      </div>
+    </div>
+    <div id="donut-rows"></div>
+    <p class="small muted">Tap a star to set each donut's target. "Flavor" makes that flavor dominant so the donut's Flavor Powers come from it (Sweet = shiny and alpha odds, Spicy = attack, Sour = items, Bitter = defense, Fresh = catching and encounters).</p>
+  </section>
+
+  <!-- 3. Recipes -->
+  <section class="card" id="sec-recipes">
+    <div class="sec-head"><div><span class="step">Step 3</span><h2>Recipes</h2></div></div>
+    <div class="summary" id="summary"></div>
+    <div id="recipes" style="display:flex;flex-direction:column;gap:12px"></div>
+    <details id="rules">
+      <summary>How the math works, sources, and what is assumed</summary>
+      <div class="rules">
+        <p><strong>Verified against the game (Game8, Serebii, Rotom Labs / PKHeX data, and Lusamine's disassembly notes):</strong></p>
+        <ul>
+          <li><strong>Flavor Score</strong> is the plain sum of every berry's Sweet + Spicy + Sour + Bitter + Fresh points. Nothing else feeds it.</li>
+          <li><strong>Stars</strong> come from Flavor Score alone: ★ 120 · ★★ 240 · ★★★ 350 · ★★★★ 700 · ★★★★★ 960. Below 120 the donut has no star and no multiplier.</li>
+          <li><strong>Level Boost</strong> = floor(sum of berry Level values × star multiplier). <strong>Donut Energy</strong> = floor(sum of Calories × multiplier). Multipliers are ×1.1, ×1.2, ×1.3, ×1.4, ×1.5 for 1 to 5 stars.</li>
+          <li><strong>Slots</strong>: 3 berries at first, one more per butter upgrade, 8 max. Any berries can be combined, repeats included (8× the same berry is a normal recipe).</li>
+          <li><strong>Donut type</strong> is the highest flavor (Sweet Meringue, Spicy Curry, Sour Jam, Bitter Chocolate, Fresh Cream). A tie for highest makes a Rainbow donut.</li>
+          <li><strong>Flavor Powers</strong> are random, but only flavors at 120+ points can roll one. Each flavor's "budget" (1 to 9) rises at 120, 160, 200, 300, 360, 420, 525, 700, 760; budgets of 5+ can roll Level 3 powers, and 9 guarantees one on the first roll. Rainbow donuts add +1 to every flavor's budget.</li>
+          <li>Berry table: 66 berries (33 regular, 33 Hyper). Serebii's table and Rotom Labs' PKHeX-sourced data agree on every value.</li>
+        </ul>
+        <p><strong>Assumed, not verified:</strong></p>
+        <ul>
+          <li>A donut can be made with as few as 1 berry. Every source shows recipes of 3 to 8; none states a minimum, so the planner allows small recipes and you can raise the slot count if the game refuses one.</li>
+          <li>One guide (amiibodoctor) says stars are "the average of the berries' stars, rounded down". That contradicts Game8, Bulbapedia, and the calculator code, which all use the Flavor Score thresholds above, so this planner uses the thresholds.</li>
+        </ul>
+        <div class="tbl-wrap"><table>
+          <tr><th>Stars</th><th>Flavor Score</th><th>Multiplier</th></tr>
+          <tr><td>★</td><td class="num">120</td><td>×1.1</td></tr>
+          <tr><td>★★</td><td class="num">240</td><td>×1.2</td></tr>
+          <tr><td>★★★</td><td class="num">350</td><td>×1.3</td></tr>
+          <tr><td>★★★★</td><td class="num">700</td><td>×1.4</td></tr>
+          <tr><td>★★★★★</td><td class="num">960</td><td>×1.5</td></tr>
+        </table></div>
+        <p class="small">Sources: <a href="https://game8.co/games/Pokemon-Legends-Z-A/archives/573580">Game8 – Flavor Score</a> · <a href="https://game8.co/games/Pokemon-Legends-Z-A/archives/573672">Game8 – Donut Energy</a> · <a href="https://www.serebii.net/legendsz-a/anshasdonuts.shtml">Serebii – Ansha's Donuts</a> · <a href="https://gist.github.com/Lusamine/1bf62b88ff63d705b22394a20f87ddca">Lusamine – donut generation disassembly</a> · <a href="https://rotomlabs.net/guide/legends-z-a-donut-mechanics">Rotom Labs – donut mechanics</a> · <a href="https://bulbapedia.bulbagarden.net/wiki/Donut">Bulbapedia – Donut</a></p>
+      </div>
+    </details>
+  </section>
+</div>
+
+<script>
+(function(){
+"use strict";
+// ---------- Data ----------
+const RAW=[["cheri-berry","Cheri Berry",0,10,0,0,0,1,60],["chesto-berry","Chesto Berry",0,0,0,0,10,1,60],["pecha-berry","Pecha Berry",10,0,0,0,0,1,60],["rawst-berry","Rawst Berry",0,0,0,10,0,1,60],["aspear-berry","Aspear Berry",0,0,10,0,0,1,60],["oran-berry","Oran Berry",0,5,5,5,5,1,60],["persim-berry","Persim Berry",5,5,5,0,5,1,60],["lum-berry","Lum Berry",5,5,0,5,5,2,65],["sitrus-berry","Sitrus Berry",5,0,5,5,5,2,65],["pomeg-berry","Pomeg Berry",10,10,0,10,0,2,65],["kelpsy-berry","Kelpsy Berry",0,0,10,10,10,2,65],["qualot-berry","Qualot Berry",10,10,10,0,0,2,65],["hondew-berry","Hondew Berry",0,10,0,10,10,2,65],["grepa-berry","Grepa Berry",10,0,10,0,10,2,65],["tamato-berry","Tamato Berry",0,15,0,0,10,2,65],["occa-berry","Occa Berry",10,15,0,0,0,3,70],["passho-berry","Passho Berry",0,0,0,10,15,3,70],["wacan-berry","Wacan Berry",15,0,10,0,0,3,70],["rindo-berry","Rindo Berry",0,10,0,15,0,3,70],["yache-berry","Yache Berry",0,0,15,0,10,3,70],["chople-berry","Chople Berry",0,15,0,10,0,3,70],["kebia-berry","Kebia Berry",0,0,10,0,15,3,70],["shuca-berry","Shuca Berry",15,10,0,0,0,3,70],["coba-berry","Coba Berry",0,0,0,15,10,3,70],["payapa-berry","Payapa Berry",10,0,15,0,0,3,70],["tanga-berry","Tanga Berry",0,20,10,0,0,3,70],["charti-berry","Charti Berry",0,10,0,0,20,3,70],["kasib-berry","Kasib Berry",20,0,0,0,10,3,70],["haban-berry","Haban Berry",10,0,0,20,0,3,70],["colbur-berry","Colbur Berry",0,0,20,10,0,3,70],["babiri-berry","Babiri Berry",0,25,0,0,10,3,70],["chilan-berry","Chilan Berry",10,0,0,0,25,3,70],["roseli-berry","Roseli Berry",25,0,0,10,0,3,70],["hyper-cheri-berry","Hyper Cheri Berry",0,40,0,0,0,5,80],["hyper-chesto-berry","Hyper Chesto Berry",0,0,0,0,40,3,100],["hyper-pecha-berry","Hyper Pecha Berry",40,0,0,0,0,2,100],["hyper-rawst-berry","Hyper Rawst Berry",0,0,0,40,0,3,110],["hyper-aspear-berry","Hyper Aspear Berry",0,0,40,0,0,4,90],["hyper-oran-berry","Hyper Oran Berry",10,20,15,15,0,6,90],["hyper-persim-berry","Hyper Persim Berry",0,15,15,10,20,4,110],["hyper-lum-berry","Hyper Lum Berry",20,15,10,0,15,3,110],["hyper-sitrus-berry","Hyper Sitrus Berry",15,10,0,20,15,4,120],["hyper-pomeg-berry","Hyper Pomeg Berry",30,35,0,0,5,7,140],["hyper-kelpsy-berry","Hyper Kelpsy Berry",5,0,0,30,35,5,160],["hyper-qualot-berry","Hyper Qualot Berry",35,0,30,5,0,4,160],["hyper-hondew-berry","Hyper Hondew Berry",0,5,35,0,30,6,150],["hyper-grepa-berry","Hyper Grepa Berry",0,60,25,0,5,8,140],["hyper-tamato-berry","Hyper Tamato Berry",5,25,0,0,60,6,180],["hyper-occa-berry","Hyper Occa Berry",60,0,0,5,25,5,180],["hyper-passho-berry","Hyper Passho Berry",25,0,5,60,0,6,200],["hyper-wacan-berry","Hyper Wacan Berry",0,5,60,25,0,7,160],["hyper-rindo-berry","Hyper Rindo Berry",15,55,0,5,25,9,210],["hyper-yache-berry","Hyper Yache Berry",25,0,5,15,55,7,250],["hyper-chople-berry","Hyper Chople Berry",55,5,15,25,0,6,250],["hyper-kebia-berry","Hyper Kebia Berry",0,15,25,55,5,7,270],["hyper-shuca-berry","Hyper Shuca Berry",5,25,55,0,15,8,230],["hyper-coba-berry","Hyper Coba Berry",10,95,0,10,5,10,240],["hyper-payapa-berry","Hyper Payapa Berry",5,0,10,10,95,8,300],["hyper-tanga-berry","Hyper Tanga Berry",95,10,10,5,0,7,300],["hyper-charti-berry","Hyper Charti Berry",0,10,5,95,10,8,330],["hyper-kasib-berry","Hyper Kasib Berry",10,5,95,0,10,9,270],["hyper-haban-berry","Hyper Haban Berry",85,0,0,0,65,8,370],["hyper-colbur-berry","Hyper Colbur Berry",0,0,65,0,85,9,370],["hyper-babiri-berry","Hyper Babiri Berry",0,0,65,85,0,9,400],["hyper-chilan-berry","Hyper Chilan Berry",0,85,0,65,0,9,370],["hyper-roseli-berry","Hyper Roseli Berry",0,65,85,0,0,10,340]];
+const FLAVORS=["sweet","spicy","sour","bitter","fresh"];
+const FLABEL={sweet:"Sweet",spicy:"Spicy",sour:"Sour",bitter:"Bitter",fresh:"Fresh"};
+const DONUT_TYPE={sweet:"Sweet Meringue",spicy:"Spicy Curry",sour:"Sour Jam",bitter:"Bitter Chocolate",fresh:"Fresh Cream"};
+const STAR_T=[0,120,240,350,700,960];
+const MULT=[1,1.1,1.2,1.3,1.4,1.5];
+const BUDGET_T=[120,160,200,300,360,420,525,700,760];
+const BERRIES=RAW.map(r=>{
+  const f={sweet:r[2],spicy:r[3],sour:r[4],bitter:r[5],fresh:r[6]};
+  const total=r[2]+r[3]+r[4]+r[5]+r[6];
+  let top=null,best=-1,tie=false;
+  for(const k of FLAVORS){ if(f[k]>best){best=f[k];top=k;tie=false;} else if(f[k]===best){tie=true;} }
+  if(tie) top=null;
+  return {id:r[0],name:r[1],hyper:r[1].startsWith("Hyper"),f,total,lv:r[7],cal:r[8],top};
+});
+const BY_ID=Object.fromEntries(BERRIES.map(b=>[b.id,b]));
+const NAME_INDEX=Object.fromEntries(BERRIES.map(b=>[b.name.toLowerCase(),b.id]));
+
+// ---------- State ----------
+const LS_KEY="ansha-planner-v1";
+let state={inv:{},donuts:[{star:3,focus:"any"},{star:3,focus:"any"}],slots:8,mode:"conserve",example:false};
+function load(){ try{ const s=JSON.parse(localStorage.getItem(LS_KEY)||"null"); if(s&&s.inv&&Array.isArray(s.donuts)) state=Object.assign(state,s); }catch(e){} }
+function save(){ try{ localStorage.setItem(LS_KEY,JSON.stringify(state)); }catch(e){} }
+load();
+if(!Object.keys(state.inv).length && !state.cleared){
+  state.example=true;
+  state.inv={"hyper-tanga-berry":12,"hyper-haban-berry":6,"hyper-payapa-berry":2,"hyper-yache-berry":3,"hyper-coba-berry":5,"hyper-kasib-berry":4,"hyper-cheri-berry":7,"hyper-pecha-berry":5,"cheri-berry":30,"pecha-berry":25,"oran-berry":40,"roseli-berry":12,"babiri-berry":10,"chilan-berry":9,"tamato-berry":15,"sitrus-berry":20,"lum-berry":18};
+}
+
+// ---------- Helpers ----------
+const $=s=>document.querySelector(s);
+function el(tag,attrs,children){ const e=document.createElement(tag); if(attrs) for(const k in attrs){ if(k==="class") e.className=attrs[k]; else if(k==="text") e.textContent=attrs[k]; else if(k==="html") e.innerHTML=attrs[k]; else if(k.startsWith("on")) e.addEventListener(k.slice(2),attrs[k]); else e.setAttribute(k,attrs[k]); } if(children) for(const c of children){ if(c==null) continue; e.append(typeof c==="string"?document.createTextNode(c):c);} return e; }
+function starsText(n){ return "★".repeat(n)+"☆".repeat(5-n); }
+function starOf(score){ let s=0; for(let i=1;i<=5;i++) if(score>=STAR_T[i]) s=i; return s; }
+function flavDot(k){ return el("span",{class:"dot",style:"background:var(--"+k+")"}); }
+function topFlavorsOf(b){ return FLAVORS.filter(k=>b.f[k]>0).sort((a,c)=>b.f[c]-b.f[a]); }
+
+function evalRecipe(list){ // list = array of berry objects (with repeats)
+  const f={sweet:0,spicy:0,sour:0,bitter:0,fresh:0}; let lv=0,cal=0;
+  for(const b of list){ for(const k of FLAVORS) f[k]+=b.f[k]; lv+=b.lv; cal+=b.cal; }
+  const score=FLAVORS.reduce((a,k)=>a+f[k],0);
+  const star=starOf(score), mult=MULT[star];
+  const mx=Math.max(...FLAVORS.map(k=>f[k]));
+  const tops=FLAVORS.filter(k=>f[k]===mx&&mx>0);
+  const rainbow=tops.length>1;
+  const type=list.length===0?"—":rainbow?"Rainbow":DONUT_TYPE[tops[0]];
+  const budget={};
+  for(const k of FLAVORS){ let p=0; for(const t of BUDGET_T) if(f[k]>=t) p++; if(rainbow&&p<9) p++; if(f[k]<120) p=0; budget[k]=p; }
+  return {f,score,star,mult,level:Math.floor(lv*mult),energy:Math.floor(cal*mult),baseLevel:lv,baseCal:cal,type,rainbow,tops,budget};
+}
+
+// ---------- Solver (bounded knapsack over berries in the bag) ----------
+// Finds a recipe of <= slots berries. mode "min": least Flavor Score that is still >= target
+// (ties: spread over many small berries). mode "max": highest Flavor Score possible (ties: highest level).
+function solve(rem,slots,focus,mode,target){
+  const items=[];
+  for(const b of BERRIES){ const q=rem[b.id]|0; if(q<=0) continue; if(focus!=="any"&&b.top!==focus) continue; const c=Math.min(q,slots); for(let i=0;i<c;i++) items.push(b); }
+  if(!items.length) return null;
+  const S=slots,W=1201,N=(S+1)*W;
+  const dp=new Float64Array(N).fill(Infinity); dp[0]=0;
+  const layers=[];
+  for(const b of items){
+    const w=b.total; const c=mode==="min"?(w*1e6+w*w):(-b.lv*100-b.cal/100);
+    const taken=new Uint8Array(N);
+    for(let k=S;k>=1;k--){ const rp=(k-1)*W, r=k*W;
+      for(let s=W-1-w;s>=0;s--){ const pv=dp[rp+s]; if(pv===Infinity) continue; const nv=pv+c; if(nv<dp[r+s+w]){dp[r+s+w]=nv;taken[r+s+w]=1;} } }
+    layers.push(taken);
+  }
+  let bk=-1,bs=-1,bc=Infinity;
+  if(mode==="min"){
+    for(let k=1;k<=S;k++) for(let s=target;s<W;s++){ const v=dp[k*W+s]; if(v<bc){bc=v;bk=k;bs=s;} }
+    if(bk<0) return null;
+  } else {
+    for(let s=W-1;s>=1&&bk<0;s--) for(let k=1;k<=S;k++){ const v=dp[k*W+s]; if(v!==Infinity&&v<bc){bc=v;bk=k;bs=s;} }
+    if(bk<0) return null;
+  }
+  const out=[]; let k=bk,s=bs;
+  for(let i=layers.length-1;i>=0&&k>0;i--){ if(layers[i][k*W+s]){ out.push(items[i]); s-=items[i].total; k--; } }
+  return out;
+}
+function deduct(rem,list){ for(const b of list) rem[b.id]=(rem[b.id]|0)-1; }
+function groupRecipe(list){ const m=new Map(); for(const b of list) m.set(b.id,(m.get(b.id)||0)+1); return [...m.entries()].map(([id,q])=>({b:BY_ID[id],q})).sort((a,c)=>c.b.total-a.b.total||c.q-a.q); }
+
+// Top-up: fill free slots with leftover berries that raise level the most (Strongest mode).
+function topUp(list,rem,slots,focus){
+  const cur=list.slice();
+  while(cur.length<slots){
+    let best=null;
+    for(const b of BERRIES){ if((rem[b.id]|0)<=0) continue; if(focus!=="any"&&b.top!==focus) continue; if(!best||b.lv>best.lv||(b.lv===best.lv&&b.total>best.total)) best=b; }
+    if(!best) break;
+    if(focus==="any"){ // keep the donut's type from flipping to Rainbow by accident
+      const before=evalRecipe(cur), after=evalRecipe(cur.concat([best]));
+      if(before.tops.length===1&&after.rainbow) break;
+    }
+    cur.push(best); rem[best.id]--;
+  }
+  return cur;
+}
+
+// What would it take to reach the target from the best-effort recipe?
+function needsFor(list,target,slots,focus){
+  const pool=BERRIES.filter(b=>focus==="any"?true:b.top===focus).sort((a,c)=>c.total-a.total);
+  const best=pool[0]; if(!best) return null;
+  const cur=list.slice().sort((a,c)=>a.total-c.total);
+  let score=cur.reduce((a,b)=>a+b.total,0);
+  let add=0,swap=[];
+  while(score<target&&cur.length+add<slots){ add++; score+=best.total; }
+  let i=0;
+  while(score<target&&i<cur.length){ if(cur[i].id===best.id){i++;continue;} score+=best.total-cur[i].total; swap.push(cur[i]); i++; }
+  if(score<target) return {impossible:true};
+  return {berry:best,add,swap:groupRecipe(swap),gap:target-list.reduce((a,b)=>a+b.total,0)};
+}
+
+function plan(){
+  const rem=Object.assign({},state.inv);
+  const order=state.donuts.map((d,i)=>({i,d,t:STAR_T[d.star]})).sort((a,b)=>b.t-a.t||(b.d.focus!=="any")-(a.d.focus!=="any"));
+  const res=new Array(state.donuts.length);
+  const failed=[];
+  for(const o of order){
+    const r=solve(rem,state.slots,o.d.focus,"min",o.t);
+    if(r){ deduct(rem,r); res[o.i]={ok:true,list:r}; } else failed.push(o);
+  }
+  for(const o of failed){
+    const r=solve(rem,state.slots,o.d.focus,"max",0)||[];
+    deduct(rem,r);
+    res[o.i]={ok:false,list:r,needs:needsFor(r,o.t,state.slots,o.d.focus)};
+  }
+  if(state.mode==="strong"){ for(const o of order){ const x=res[o.i]; x.list=topUp(x.list,rem,state.slots,o.d.focus); } }
+  return {res,rem};
+}
+
+// ---------- Rendering: inventory ----------
+function renderInventory(highlight){
+  const list=$("#inv-list"); list.innerHTML="";
+  const ids=Object.keys(state.inv).filter(id=>BY_ID[id]&&state.inv[id]>0).sort((a,b)=>BY_ID[b].total-BY_ID[a].total||a.localeCompare(b));
+  $("#inv-count").textContent=ids.length?ids.length+" kinds · "+ids.reduce((a,id)=>a+state.inv[id],0)+" berries":"";
+  $("#example-banner").hidden=!state.example||!ids.length;
+  if(!ids.length){ list.append(el("div",{class:"empty",text:"No berries yet. Upload a screenshot or add berries by name."})); return; }
+  for(const id of ids){
+    const b=BY_ID[id];
+    const row=el("div",{class:"inv-row"+(highlight&&highlight.has(id)?" new":"")});
+    const name=el("div",{class:"inv-name"});
+    const n=el("div",{class:"n"},[b.name,el("span",{class:"tag"+(b.hyper?" hyper":""),text:b.hyper?"Hyper":"Regular"})]);
+    const mini=el("div",{class:"flav-mini"});
+    for(const k of topFlavorsOf(b)) mini.append(el("span",{},[flavDot(k),FLABEL[k]+" "+b.f[k]]));
+    mini.append(el("span",{class:"num",text:"· "+b.total+" pts · Lv +"+b.lv+" · "+b.cal+" cal"}));
+    name.append(n,mini);
+    const act=el("div",{class:"inv-actions"});
+    const st=el("div",{class:"stepper"});
+    const inp=el("input",{type:"number",min:"0",max:"999",value:String(state.inv[id]),id:"qty-"+id,"aria-label":b.name+" quantity"});
+    inp.addEventListener("change",()=>{ setQty(id,parseInt(inp.value,10)||0); });
+    st.append(el("button",{"aria-label":"One fewer "+b.name,text:"−",onclick:()=>setQty(id,state.inv[id]-1)}),inp,el("button",{"aria-label":"One more "+b.name,text:"+",onclick:()=>setQty(id,state.inv[id]+1)}));
+    act.append(st,el("button",{class:"rm","aria-label":"Remove "+b.name,text:"×",onclick:()=>setQty(id,0)}));
+    row.append(name,act); list.append(row);
+  }
+}
+function setQty(id,q){ q=Math.max(0,Math.min(999,q|0)); if(q===0) delete state.inv[id]; else state.inv[id]=q; if(state.example){state.example=false;} save(); renderInventory(); schedulePlan(); }
+function addBerry(id){ state.inv[id]=(state.inv[id]|0)+1; if(state.example) state.example=false; save(); renderInventory(new Set([id])); schedulePlan(); const inp=$("#qty-"+id); if(inp){inp.focus();inp.select();} }
+
+// search / suggestions
+const search=$("#berry-search"), sugg=$("#sugg");
+function renderSugg(){
+  const q=search.value.trim().toLowerCase(); sugg.innerHTML="";
+  if(!q){ sugg.hidden=true; return; }
+  const hits=BERRIES.filter(b=>b.name.toLowerCase().includes(q)).slice(0,12);
+  if(!hits.length){ sugg.hidden=true; return; }
+  for(const b of hits){
+    const btn=el("button",{type:"button"},[el("span",{class:"tag"+(b.hyper?" hyper":""),text:b.hyper?"Hyper":"Reg"}),el("span",{text:b.name}),el("span",{class:"muted small num",text:b.total+" pts"+(state.inv[b.id]?" · have "+state.inv[b.id]:"")})]);
+    btn.addEventListener("click",()=>{ addBerry(b.id); search.value=""; sugg.hidden=true; });
+    sugg.append(btn);
+  }
+  sugg.hidden=false;
+}
+search.addEventListener("input",renderSugg);
+search.addEventListener("focus",renderSugg);
+search.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); const first=sugg.querySelector("button"); if(first) first.click(); } if(e.key==="Escape"){ sugg.hidden=true; } });
+document.addEventListener("click",e=>{ if(!e.target.closest(".search")) sugg.hidden=true; });
+$("#clear-example").addEventListener("click",()=>{ state.inv={}; state.example=false; state.cleared=true; save(); renderInventory(); schedulePlan(); search.focus(); });
+$("#clear-all").addEventListener("click",()=>{ state.inv={}; state.example=false; state.cleared=true; save(); renderInventory(); schedulePlan(); });
+
+// ---------- Rendering: plan controls ----------
+function renderSlots(){ const seg=$("#slots-seg"); seg.innerHTML=""; for(let n=3;n<=8;n++){ seg.append(el("button",{type:"button","aria-pressed":String(state.slots===n),text:String(n),onclick:()=>{state.slots=n;save();renderSlots();schedulePlan();}})); } }
+function renderMode(){ for(const b of $("#mode-seg").querySelectorAll("button")) b.setAttribute("aria-pressed",String(b.dataset.mode===state.mode)); $("#mode-hint").textContent=state.mode==="conserve"?"Hits each star target with the least flavor spent, so your best berries stay in the bag.":"Hits every target first, then fills empty slots with leftover berries for more Level Boost and energy."; }
+$("#mode-seg").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b) return; state.mode=b.dataset.mode; save(); renderMode(); schedulePlan(); });
+function syncDonutCount(n){ n=Math.max(1,Math.min(12,n|0)); while(state.donuts.length<n) state.donuts.push({star:state.donuts.length?state.donuts[state.donuts.length-1].star:3,focus:"any"}); state.donuts.length=n; $("#donut-count").value=String(n); save(); renderDonutRows(); schedulePlan(); }
+$("#donut-count").addEventListener("change",e=>syncDonutCount(parseInt(e.target.value,10)||1));
+$("#dc-minus").addEventListener("click",()=>syncDonutCount(state.donuts.length-1));
+$("#dc-plus").addEventListener("click",()=>syncDonutCount(state.donuts.length+1));
+function renderDonutRows(){
+  const wrap=$("#donut-rows"); wrap.innerHTML="";
+  state.donuts.forEach((d,i)=>{
+    const row=el("div",{class:"donut-row"});
+    row.append(el("span",{class:"lbl",text:"Donut "+(i+1)}));
+    const st=el("div",{class:"stars",role:"radiogroup","aria-label":"Donut "+(i+1)+" star target"});
+    for(let s=1;s<=5;s++) st.append(el("button",{type:"button",class:s<=d.star?"on":"","aria-label":s+" star"+(s>1?"s":""),"aria-pressed":String(d.star===s),text:"★",onclick:()=>{d.star=s;save();renderDonutRows();schedulePlan();}}));
+    const sel=el("select",{id:"focus-"+i,"aria-label":"Donut "+(i+1)+" flavor focus"});
+    sel.append(el("option",{value:"any",text:"Any flavor"}));
+    for(const k of FLAVORS) sel.append(el("option",{value:k,text:FLABEL[k]}));
+    sel.value=d.focus; sel.addEventListener("change",()=>{d.focus=sel.value;save();schedulePlan();});
+    row.append(st,sel); wrap.append(row);
+  });
+}
+
+// ---------- Rendering: recipes ----------
+let planTimer=null;
+function schedulePlan(){ clearTimeout(planTimer); planTimer=setTimeout(renderPlan,120); }
+function renderPlan(){
+  const out=$("#recipes"), sum=$("#summary"); out.innerHTML=""; sum.innerHTML="";
+  const haveAny=Object.keys(state.inv).length>0;
+  if(!haveAny){ out.append(el("div",{class:"empty",text:"Add berries above to get recipes."})); return; }
+  const {res,rem}=plan();
+  const hits=res.filter(r=>r.ok).length;
+  sum.append(el("span",{class:"pill "+(hits===res.length?"good":"warn"),text:hits+" of "+res.length+" donut"+(res.length>1?"s":"")+" hit target"}));
+  const left=Object.values(rem).reduce((a,v)=>a+Math.max(0,v),0);
+  sum.append(el("span",{class:"pill num",text:left+" berries left after"}));
+  res.forEach((r,i)=>{
+    const d=state.donuts[i]; const ev=evalRecipe(r.list);
+    const card=el("article",{class:"recipe"+(r.ok?"":" short")});
+    const head=el("div",{class:"r-head"});
+    head.append(el("div",{class:"t"},["Donut "+(i+1),el("span",{class:"stars-out","aria-label":ev.star+" stars",text:starsText(ev.star)})]));
+    head.append(el("span",{class:"pill "+(r.ok?"good":"warn"),text:r.ok?"Hits ★"+d.star+" target":(r.list.length?"Short of ★"+d.star+" · best is ★"+ev.star:"No berries for this")}));
+    card.append(head);
+    const body=el("div",{class:"r-body"});
+    if(r.list.length){
+      const ing=el("ul",{class:"ing"});
+      for(const g of groupRecipe(r.list)) ing.append(el("li",{},[el("span",{class:"q num",text:g.q+"×"}),flavDot(g.b.top||topFlavorsOf(g.b)[0]||"sweet"),el("span",{text:g.b.name}),el("span",{class:"x num",text:g.b.total+" pts each"})]));
+      body.append(ing);
+      const stats=el("div",{class:"stat-row"});
+      stats.append(stat(ev.score,"Flavor score"),stat("+"+ev.level,"Level boost"),stat(ev.energy,"Energy (cal)"),stat(ev.type,"Donut type"));
+      body.append(stats);
+      const bar=el("div",{class:"bar",role:"img","aria-label":FLAVORS.map(k=>FLABEL[k]+" "+ev.f[k]).join(", ")});
+      for(const k of FLAVORS) if(ev.f[k]>0) bar.append(el("span",{style:"width:"+(100*ev.f[k]/ev.score).toFixed(1)+"%;background:var(--"+k+")"}));
+      const leg=el("div",{class:"legend"});
+      for(const k of FLAVORS) if(ev.f[k]>0) leg.append(el("span",{},[flavDot(k),FLABEL[k]+" "+ev.f[k]]));
+      body.append(bar,leg);
+      const pw=FLAVORS.filter(k=>ev.budget[k]>0).map(k=>FLABEL[k]+" (budget "+ev.budget[k]+"/9"+(ev.budget[k]>=9?", Lv.3 first roll":ev.budget[k]>=5?", Lv.3 possible":"")+")");
+      body.append(el("p",{class:"powers",text:pw.length?"Flavor Powers can roll from: "+pw.join(", ")+"."+(ev.rainbow?" Rainbow: every flavor gets +1 budget.":""):"No flavor reaches 120, so this donut gets no Flavor Power."}));
+      if(r.ok && r.list.length<state.slots && state.mode==="conserve") body.append(el("p",{class:"small muted",text:"Uses "+r.list.length+" of "+state.slots+" slots. Switch to Strongest to fill the rest with leftovers."}));
+    } else {
+      body.append(el("p",{class:"muted",text:d.focus!=="any"?"No "+FLABEL[d.focus]+"-dominant berries are left for this donut.":"No berries are left for this donut."}));
+    }
+    if(!r.ok){
+      const nd=el("div",{class:"needs"});
+      const n=r.needs;
+      if(!n||n.impossible){ nd.append(el("span",{text:"★"+d.star+" needs a Flavor Score of "+STAR_T[d.star]+". Unlock more berry slots or lower the target."})); }
+      else {
+        nd.append(el("span",{},[el("strong",{text:"To reach ★"+d.star+" ("+STAR_T[d.star]+" pts, short by "+n.gap+"):"})]));
+        if(n.add) nd.append(el("span",{text:"Add "+n.add+"× "+n.berry.name+(n.add>1?"":"")+" to the empty slot"+(n.add>1?"s":"")+"."}));
+        if(n.swap.length) nd.append(el("span",{text:"Swap out "+n.swap.map(g=>g.q+"× "+g.b.name).join(", ")+" for "+n.berry.name+"."}));
+        nd.append(el("span",{class:"small muted",text:"Any berries adding up to the missing points work; "+n.berry.name+" ("+n.berry.total+" pts) is the strongest "+(d.focus!=="any"?FLABEL[d.focus]+" ":"")+"option."}));
+      }
+      body.append(nd);
+    }
+    card.append(body);
+    if(r.list.length){
+      const foot=el("div",{class:"r-foot"});
+      foot.append(el("button",{class:"btn small",text:"Made it — remove these berries",onclick:()=>{ for(const b of r.list){ const q=(state.inv[b.id]|0)-1; if(q<=0) delete state.inv[b.id]; else state.inv[b.id]=q; } state.example=false; save(); renderInventory(); renderPlan(); }}));
+      card.append(foot);
+    }
+    out.append(card);
+  });
+}
+function stat(v,k){ return el("div",{class:"stat"},[el("span",{class:"v num",text:String(v)}),el("span",{class:"k",text:k})]); }
+
+// ---------- Screenshot reading via the viewer's Claude ----------
+const VALID_NAMES=BERRIES.map(b=>b.name);
+async function initVision(){
+  const status=$("#detect-status"), area=$("#upload-area"), input=$("#shots"), hint=$("#shots-hint");
+  let sample=null;
+  try{ sample=window.claude&&window.claude.use?await window.claude.use("sample"):null; }catch(e){ sample=null; }
+  const caps=sample?await sample.limits().catch(()=>null):null;
+  if(!sample||!caps||!caps.images){
+    $("#shots-label").hidden=true; input.hidden=true;
+    hint.textContent="Screenshot reading needs the claude.ai viewer. In this view, add berries by name below; it takes a few seconds.";
+    return;
+  }
+  input.accept=caps.images.mediaTypes.join(",");
+  const maxN=Math.max(1,caps.images.maxCount||1);
+  input.addEventListener("change",async()=>{
+    const files=[...input.files].filter(f=>caps.images.mediaTypes.includes(f.type)); input.value="";
+    if(!files.length){ show(status,"warn","Those files are not a supported image type ("+caps.images.mediaTypes.join(", ")+")."); return; }
+    const found=new Map(); let batchNo=0; const batches=[]; for(let i=0;i<files.length;i+=maxN) batches.push(files.slice(i,i+maxN));
+    const prompt="These are screenshots of a player's Berry inventory from Pokémon Legends: Z-A (Mega Dimension DLC, Ansha's donut shop or the bag). Read every berry name that is visible together with its quantity (the number shown next to it, often after an × or as a count). Only use names from this exact list, spelled exactly: "+VALID_NAMES.join("; ")+". 'Hyper' berries are separate items from regular berries: include the word Hyper only when the screenshot shows it. Skip anything that is not on the list or whose quantity you cannot read. If the same berry appears twice, report it once with the larger number. Reply with only a JSON array like [{\"name\":\"Hyper Tanga Berry\",\"qty\":12}] and nothing else.";
+    try{
+      for(const batch of batches){
+        batchNo++; show(status,"","Reading screenshot"+(batches.length>1?" batch "+batchNo+" of "+batches.length:"")+"… this can take up to a minute.");
+        const data=await sample.json(prompt,{images:batch,modelTier:"default"});
+        if(Array.isArray(data)) for(const row of data){
+          if(!row||typeof row.name!=="string") continue;
+          const id=NAME_INDEX[row.name.trim().toLowerCase()]||NAME_INDEX[(row.name.trim().toLowerCase()+" berry")];
+          const q=parseInt(row.qty,10); if(!id||!(q>0)) continue;
+          found.set(id,Math.max(found.get(id)||0,q));
+        }
+      }
+      if(!found.size){ show(status,"warn","No berries were recognized in those screenshots. Try a clearer or closer shot, or add berries by name."); return; }
+      for(const [id,q] of found) state.inv[id]=q;
+      state.example=false; state.cleared=true; save(); renderInventory(new Set(found.keys())); schedulePlan();
+      show(status,"good","Read "+found.size+" berr"+(found.size===1?"y":"ies")+" from "+files.length+" screenshot"+(files.length>1?"s":"")+". Check the counts below and fix any misses.");
+    }catch(e){
+      const code=e&&e.code;
+      const msg=code==="not_granted"?"Screenshot reading was not allowed for this page. Add berries by name instead.":
+        code==="rate_limited"?"Claude is busy or your usage limit is reached. Try again in a bit, or add berries by name.":
+        code==="image_rejected"?"One of those images was rejected (too large or not a supported type). Try a smaller screenshot.":
+        code==="invalid_json"?"The reply could not be read as a list. Try again with fewer screenshots at a time.":
+        code==="cancelled"?"Cancelled.":"Screenshot reading failed. You can try again or add berries by name.";
+      show(status,"warn",msg);
+      if(code==="not_granted"||code==="sampling_disabled"||code==="images_unavailable"){ $("#shots-label").hidden=true; }
+    }
+  });
+}
+function show(node,kind,text){ node.hidden=false; node.className="notice"+(kind?" "+kind:""); node.textContent=text; }
+
+// ---------- Boot ----------
+renderInventory(); renderSlots(); renderMode(); $("#donut-count").value=String(state.donuts.length); renderDonutRows(); renderPlan();
+initVision();
+})();
+</script>
