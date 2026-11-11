@@ -57,6 +57,32 @@ Tap the shortcut's name at the top → **ⓘ Details** → toggle **Show in Shar
 
 ---
 
+## Install the ready-made file instead of building it
+
+`Extract RAR.shortcut` in this folder is the finished shortcut. iOS only imports
+**signed** shortcut files, and signing is Mac-only, so:
+
+**With a Mac (macOS 12 or later)**
+
+1. Save `Extract RAR.shortcut` to your Mac (Downloads is fine).
+2. In Terminal:
+   ```
+   cd ~/Downloads
+   shortcuts sign --mode anyone --input "Extract RAR.shortcut" --output "Extract RAR signed.shortcut"
+   ```
+3. Double-click `Extract RAR signed.shortcut` to import it on the Mac, then it syncs
+   to your iPhone through iCloud within a minute. Or AirDrop the signed file straight
+   to the phone and tap **Add Shortcut**.
+4. On the phone, confirm **Show in Share Sheet** is on (it is set in the file).
+
+**Without a Mac**
+
+There is no phone-only way to import an unsigned file. Build it by hand using the
+table above (about 3 minutes). Once built, you can share it as an iCloud link from
+the phone and reinstall it anywhere.
+
+---
+
 ## Daily use
 
 1. Save or AirDrop the .rar anywhere in Files (Downloads, iCloud, On My iPhone).
